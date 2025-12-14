@@ -1,22 +1,26 @@
 import streamlit as st
-import pickle
 import pandas as pd
-import numpy as np
+import pickle
 
-# --------------------------------------------------
-# Page setup
-# --------------------------------------------------
-st.set_page_config(
-    page_title="Project COOK – PDT Recommendation",
-    layout="centered"
-)
+st.set_page_config(page_title="Project COOK – PDT Recommendation", layout="centered")
 
-st.title("🍗 Project COOK – PDT Recommendation System")
-st.caption("Human-in-the-loop assisted forecasting")
+# --------------------------------
+# Feature order (LOCKED)
+# --------------------------------
+FEATURE_COLUMNS = [
+    "Shredded_chicken",
+    "OutOfStockBefore7pm",
+    "Human_Traffic",
+    "Weather",
+    "Public_Event",
+    "day_of_week",
+    "day_of_month",
+    "week_of_year"
+]
 
-# --------------------------------------------------
-# Load model safely
-# --------------------------------------------------
+# --------------------------------
+# Load model
+# --------------------------------
 @st.cache_resource
 def load_model():
     with open("pdt_recommendation_model.pkl", "rb") as f:
@@ -24,21 +28,28 @@ def load_model():
 
 model = load_model()
 
-# --------------------------------------------------
-# UI Inputs
-# --------------------------------------------------
-date_input = st.date_input("📅 Select Date")
+# --------------------------------
+# UI
+# --------------------------------
+st.title("🍗 Project COOK – Smart Chicken Recommendation")
+st.write("Human-in-the-loop assisted PDT recommendation system")
 
-weather = st.selectbox("🌦 Weather", ["Cold", "Warm", "Hot", "Rainy"])
-public_event = st.selectbox("🎉 Public / Store Event", ["No", "Yes"])
+date_input = st.date_input("Select date")
+
+shredded = st.number_input("Shredded chicken (units)", min_value=0, value=12)
+out_of_stock = st.selectbox("Out of stock before 7pm?", ["No", "Yes"])
+
 human_traffic = st.selectbox(
-    "👥 Expected Customer Traffic",
+    "Expected customer traffic",
     ["Much Lower", "Neutral", "Higher", "Much Higher"]
 )
 
-# --------------------------------------------------
-# Encoders (must match training)
-# --------------------------------------------------
+weather = st.selectbox("Weather", ["Cold", "Warm", "Hot", "Rainy"])
+public_event = st.selectbox("Public / Store Event", ["No", "Yes"])
+
+# --------------------------------
+# Encoding maps (same as training)
+# --------------------------------
 traffic_map = {
     "Much Lower": -2,
     "Neutral": 0,
@@ -53,48 +64,26 @@ weather_map = {
     "Rainy": 2
 }
 
-# --------------------------------------------------
-# Predict
-# --------------------------------------------------
-if st.button("🔮 Predict Chicken Requirement"):
-
+# --------------------------------
+# Prediction
+# --------------------------------
+if st.button("Predict chicken requirement"):
     date = pd.to_datetime(date_input)
 
-    # Step 1: Create feature dictionary
-    feature_dict = {
-        "OutOfStockBefore7pm": 0,
+    input_df = pd.DataFrame([{
+        "Shredded_chicken": shredded,
+        "OutOfStockBefore7pm": 1 if out_of_stock == "Yes" else 0,
         "Human_Traffic": traffic_map[human_traffic],
         "Weather": weather_map[weather],
         "Public_Event": 1 if public_event == "Yes" else 0,
         "day_of_week": date.dayofweek,
         "day_of_month": date.day,
         "week_of_year": int(date.isocalendar().week)
-    }
+    }])
 
-    # Step 2: Handle model expectations safely
-    try:
-        # Case A: Model knows feature names
-        if hasattr(model, "feature_names_in_"):
-            ordered_cols = list(model.feature_names_in_)
-            input_array = np.array([[feature_dict[col] for col in ordered_cols]])
+    # enforce column order
+    input_df = input_df[FEATURE_COLUMNS]
 
-        # Case B: Model does NOT know names (trained on numpy)
-        else:
-            input_array = np.array([list(feature_dict.values())])
+    prediction = model.predict(input_df)[0]
 
-        # Final safety check
-        if input_array.ndim != 2:
-            raise ValueError("Input shape incorrect")
-
-        prediction = model.predict(input_array)[0]
-
-        st.success(
-            f"✅ Recommended chickens to cook: **{int(round(prediction))}**"
-        )
-
-    except Exception as e:
-        st.error("❌ Prediction failed.")
-        st.code(str(e))
-
-st.divider()
-st.caption("Coles R&D | Project COOK | Human + AI Forecasting")
+    st.success(f"✅ Recommended chickens to cook: **{int(round(prediction))}**")
