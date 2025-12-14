@@ -1,17 +1,21 @@
 import streamlit as st
 import pickle
 import pandas as pd
+import numpy as np
 
 # --------------------------------------------------
-# Page config
+# Page setup
 # --------------------------------------------------
 st.set_page_config(
     page_title="Project COOK – PDT Recommendation",
     layout="centered"
 )
 
+st.title("🍗 Project COOK – PDT Recommendation System")
+st.caption("Human-in-the-loop assisted forecasting")
+
 # --------------------------------------------------
-# Load model
+# Load model safely
 # --------------------------------------------------
 @st.cache_resource
 def load_model():
@@ -21,13 +25,8 @@ def load_model():
 model = load_model()
 
 # --------------------------------------------------
-# UI
+# UI Inputs
 # --------------------------------------------------
-st.title("🍗 Project COOK – PDT Recommendation System")
-st.caption("Human-in-the-loop assisted cooking forecast")
-
-st.divider()
-
 date_input = st.date_input("📅 Select Date")
 
 weather = st.selectbox("🌦 Weather", ["Cold", "Warm", "Hot", "Rainy"])
@@ -38,7 +37,7 @@ human_traffic = st.selectbox(
 )
 
 # --------------------------------------------------
-# Encoding (MUST match training)
+# Encoders (must match training)
 # --------------------------------------------------
 traffic_map = {
     "Much Lower": -2,
@@ -61,8 +60,8 @@ if st.button("🔮 Predict Chicken Requirement"):
 
     date = pd.to_datetime(date_input)
 
-    # ✅ Build DataFrame with EXACT training columns
-    input_df = pd.DataFrame([{
+    # Step 1: Create feature dictionary
+    feature_dict = {
         "OutOfStockBefore7pm": 0,
         "Human_Traffic": traffic_map[human_traffic],
         "Weather": weather_map[weather],
@@ -70,16 +69,32 @@ if st.button("🔮 Predict Chicken Requirement"):
         "day_of_week": date.dayofweek,
         "day_of_month": date.day,
         "week_of_year": int(date.isocalendar().week)
-    }])
+    }
 
-    # ✅ THIS fixes your TypeError
-    prediction = model.predict(input_df)[0]
+    # Step 2: Handle model expectations safely
+    try:
+        # Case A: Model knows feature names
+        if hasattr(model, "feature_names_in_"):
+            ordered_cols = list(model.feature_names_in_)
+            input_array = np.array([[feature_dict[col] for col in ordered_cols]])
 
-    st.success(
-        f"✅ **Recommended chickens to cook:** {int(round(prediction))}"
-    )
+        # Case B: Model does NOT know names (trained on numpy)
+        else:
+            input_array = np.array([list(feature_dict.values())])
 
-    st.caption("Prediction combines calendar context + human insight")
+        # Final safety check
+        if input_array.ndim != 2:
+            raise ValueError("Input shape incorrect")
+
+        prediction = model.predict(input_array)[0]
+
+        st.success(
+            f"✅ Recommended chickens to cook: **{int(round(prediction))}**"
+        )
+
+    except Exception as e:
+        st.error("❌ Prediction failed.")
+        st.code(str(e))
 
 st.divider()
-st.caption("Project COOK | Coles R&D | Human + AI Forecasting")
+st.caption("Coles R&D | Project COOK | Human + AI Forecasting")
