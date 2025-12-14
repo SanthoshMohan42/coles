@@ -10,7 +10,7 @@ st.set_page_config(page_title="Project COOK – PDT Recommendation", layout="cen
 @st.cache_resource
 def load_model():
     try:
-        with open("model.pkl", "rb") as f:
+        with open("pdt_recommendation_model.pkl", "rb") as f:
             model = pickle.load(f)
         return model
     except FileNotFoundError:
@@ -20,7 +20,7 @@ def load_model():
 @st.cache_resource
 def load_date_preprocessor():
     try:
-        with open("date_preprocessor.pkl", "rb") as f:
+        with open("pdt_preprocessing.pkl", "rb") as f:
             dp = pickle.load(f)
         return dp
     except FileNotFoundError:
