@@ -5,10 +5,10 @@ import pickle
 # -----------------------------
 # Load model & date preprocessor
 # -----------------------------
-with open("model.pkl", "rb") as f:
+with open("pdt_recommendation_model.pkl", "rb") as f:
     model = pickle.load(f)
 
-with open("date_preprocessor.pkl", "rb") as f:
+with open("pdt_preprocessing.pkl", "rb") as f:
     date_preprocessor = pickle.load(f)
 
 # -----------------------------
@@ -83,4 +83,4 @@ if st.button("Generate Recommendation"):
 
     prediction = model.predict(input_df)[0]
 
-    st.success(f"✅ Recommended chickens to cook: **{int(round(prediction))}**")
+    st.success(f" Recommended chickens to cook: **{int(round(prediction))}**")
