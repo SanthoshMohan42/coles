@@ -1,6 +1,7 @@
 import streamlit as st
 import pickle
 import pandas as pd
+import numpy as np
 
 # --------------------------------------------------
 # Page config
@@ -15,25 +16,19 @@ st.set_page_config(
 # --------------------------------------------------
 @st.cache_resource
 def load_model():
-    try:
-        with open("pdt_recommendation_model.pkl", "rb") as f:
-            model = pickle.load(f)
-        return model
-    except FileNotFoundError:
-        st.error("❌ pdt_recommendation_model.pkl not found in root directory.")
-        st.stop()
+    with open("pdt_recommendation_model.pkl", "rb") as f:
+        return pickle.load(f)
 
 model = load_model()
 
 # --------------------------------------------------
-# App UI
+# UI
 # --------------------------------------------------
-st.title("🍗 Project COOK – Smart PDT Recommendation")
-st.caption("Human-in-the-Loop Assisted Chicken Cooking Forecast")
+st.title("🍗 Project COOK – PDT Recommendation System")
+st.caption("Human-in-the-loop assisted cooking forecast")
 
-st.markdown("---")
+st.divider()
 
-# Inputs
 date_input = st.date_input("📅 Select Date")
 
 weather = st.selectbox(
@@ -52,7 +47,7 @@ human_traffic = st.selectbox(
 )
 
 # --------------------------------------------------
-# Encoding maps (MUST match training)
+# Encoding (MUST match training)
 # --------------------------------------------------
 traffic_map = {
     "Much Lower": -2,
@@ -69,50 +64,34 @@ weather_map = {
 }
 
 # --------------------------------------------------
-# Prediction
+# Predict
 # --------------------------------------------------
 if st.button("🔮 Predict Chicken Requirement"):
 
     date = pd.to_datetime(date_input)
 
-    # Build feature row (EXACT training features)
-    input_df = pd.DataFrame({
-        "OutOfStockBefore7pm": [0],
-        "Human_Traffic": [traffic_map[human_traffic]],
-        "Weather": [weather_map[weather]],
-        "Public_Event": [1 if public_event == "Yes" else 0],
-        "day_of_week": [date.dayofweek],
-        "day_of_month": [date.day],
-        "week_of_year": [int(date.isocalendar().week)]
-    })
-
-    # FORCE correct column order
-    expected_columns = [
-        "OutOfStockBefore7pm",
-        "Human_Traffic",
-        "Weather",
-        "Public_Event",
-        "day_of_week",
-        "day_of_month",
-        "week_of_year"
+    # Build input row EXACTLY like training
+    input_data = [
+        0,                                   # OutOfStockBefore7pm
+        traffic_map[human_traffic],          # Human_Traffic
+        weather_map[weather],                # Weather
+        1 if public_event == "Yes" else 0,   # Public_Event
+        date.dayofweek,                      # day_of_week
+        date.day,                            # day_of_month
+        int(date.isocalendar().week)         # week_of_year
     ]
 
-    input_df = input_df[expected_columns]
+    # Convert to NumPy (THIS FIXES YOUR ERROR)
+    input_array = np.array(input_data).reshape(1, -1)
 
     # Predict
-    prediction = model.predict(input_df)[0]
+    prediction = model.predict(input_array)[0]
 
-    # Output
     st.success(
         f"✅ **Recommended chickens to cook:** {int(round(prediction))}"
     )
 
-    st.caption(
-        "Recommendation adjusted using human inputs + calendar context."
-    )
+    st.caption("Prediction combines calendar context + human input")
 
-# --------------------------------------------------
-# Footer
-# --------------------------------------------------
-st.markdown("---")
+st.divider()
 st.caption("Project COOK | Coles R&D | Human + AI Forecasting")
