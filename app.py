@@ -3,10 +3,16 @@ import pandas as pd
 import numpy as np
 import pickle
 
-st.set_page_config(page_title="Project COOK – PDT Recommendation", layout="centered")
+# --------------------------------------------------
+# Page config
+# --------------------------------------------------
+st.set_page_config(
+    page_title="Project COOK – PDT Recommendation",
+    layout="centered"
+)
 
 # --------------------------------------------------
-# LOCKED FEATURE ORDER (MUST MATCH TRAINING)
+# Feature order (MUST MATCH MODEL TRAINING)
 # --------------------------------------------------
 FEATURE_COLUMNS = [
     "Shredded_chicken",
@@ -20,12 +26,13 @@ FEATURE_COLUMNS = [
 ]
 
 # --------------------------------------------------
-# Load model
+# Load trained model
 # --------------------------------------------------
 @st.cache_resource
 def load_model():
     with open("pdt_recommendation_model.pkl", "rb") as f:
-        return pickle.load(f)
+        model = pickle.load(f)
+    return model
 
 model = load_model()
 
@@ -35,28 +42,58 @@ model = load_model()
 st.title("🍗 Project COOK – Smart PDT Recommendation")
 st.caption("Human-in-the-loop cooking recommendation system")
 
-date_input = st.date_input("Date")
+date_input = st.date_input("Select date")
 
-shredded = st.number_input("Shredded chicken (units)", min_value=0, value=12)
-out_of_stock = st.selectbox("Out of stock before 7pm?", ["No", "Yes"])
-human_traffic = st.selectbox("Expected customer traffic",
-                             ["Much Lower", "Neutral", "Higher", "Much Higher"])
-weather = st.selectbox("Weather", ["Cold", "Warm", "Hot", "Rainy"])
-public_event = st.selectbox("Public / Store Event", ["No", "Yes"])
+shredded = st.number_input(
+    "Shredded chicken prepared (units)",
+    min_value=0,
+    value=12
+)
+
+out_of_stock = st.selectbox(
+    "Out of stock before 7pm?",
+    ["No", "Yes"]
+)
+
+human_traffic = st.selectbox(
+    "Expected customer demand",
+    ["Much Lower", "Neutral", "Higher", "Much Higher"]
+)
+
+weather = st.selectbox(
+    "Weather condition",
+    ["Cold", "Warm", "Hot", "Rainy"]
+)
+
+public_event = st.selectbox(
+    "Public / Store Event",
+    ["No", "Yes"]
+)
 
 # --------------------------------------------------
-# Encoding maps (MATCH TRAINING)
+# Encoding maps (MUST MATCH TRAINING)
 # --------------------------------------------------
-traffic_map = {"Much Lower": -2, "Neutral": 0, "Higher": 1, "Much Higher": 2}
-weather_map = {"Cold": 1, "Warm": 0, "Hot": -1, "Rainy": 2}
+traffic_map = {
+    "Much Lower": -2,
+    "Neutral": 0,
+    "Higher": 1,
+    "Much Higher": 2
+}
+
+weather_map = {
+    "Cold": 1,
+    "Warm": 0,
+    "Hot": -1,
+    "Rainy": 2
+}
 
 # --------------------------------------------------
-# Prediction
+# Prediction logic
 # --------------------------------------------------
 if st.button("Predict chicken requirement"):
     date = pd.to_datetime(date_input)
 
-    row = [
+    input_row = [
         shredded,
         1 if out_of_stock == "Yes" else 0,
         traffic_map[human_traffic],
@@ -67,13 +104,15 @@ if st.button("Predict chicken requirement"):
         int(date.isocalendar().week)
     ]
 
-    # Convert to NumPy array (THIS FIXES YOUR ERROR)
-    input_array = np.array(row).reshape(1, -1)
+    # Convert to NumPy array (shape = (1, 8))
+    input_array = np.array(input_row, dtype=float).reshape(1, -1)
 
-    # Debug safety (remove later)
-    st.write("Input array shape:", input_array.shape)
+    # 🔍 Debug (can remove later)
+    st.write("Input shape:", input_array.shape)
     st.write("Input values:", input_array)
 
     prediction = model.predict(input_array)[0]
 
-    st.success(f"✅ Recommended chickens to cook: **{int(round(prediction))}**")
+    st.success(
+        f"✅ Recommended chickens to cook: **{int(round(prediction))}**"
+    )
